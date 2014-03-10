@@ -6,3 +6,7 @@ syntax: glob
 *.a
 *.o
 *.lib
+*.bin
+*.map
+*.elf
+run.gdb
