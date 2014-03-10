@@ -6,8 +6,9 @@ all: all_real
 # Set the target platform
 PLATFORM := STM32F40_41xxx
 
-# Enable debugging (assert checking) for the Standard Peripheral Library
+# Enable debugging (assert checking) for the Standard Peripheral Library. Requires a "assert_failed" function.
 #STM_STDPERIPH_DEBUG := yes
+
 # Use newlib
 USE_NEWLIB := yes
 
@@ -53,6 +54,12 @@ endif
 ###
 # Real make rules start here
 ###
+
+# Set 'quiet' flag if VERBOSE isn't set
+ifeq ($(VERBOSE),)
+   Q=@
+endif
+
 all_real: $(TARGETELF) $(TARGETBIN)
 
 realclean: vendor_st_stm32_stdperiph_clean clean
@@ -61,42 +68,48 @@ clean:
 	-rm obj/*.o $(TARGETELF) $(TARGETBIN)
 
 $(TARGETELF): $(OBJS) $(SPL_LIB)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lgcc
+	@echo "   LD      $@"
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lgcc
 
 $(TARGETBIN): $(TARGETELF)
-	$(OBJCOPY) -O binary $^ $@
+	@echo "   OBJCOPY $^ => $@"
+	$(Q)$(OBJCOPY) -O binary $^ $@
 
 $(OBJS): | obj
 
 obj:
-	mkdir -p $(@D)
+	@echo "   MKDIR   $@"
+	@mkdir -p $@
+	@touch $@/.keep
 
 obj/%.o: src/%.c
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
+	@echo "   CC      $^"
+	$(Q)$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 obj/startup.o: vendor/ST/STM32-StdPeriph/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f40_41xxx.s
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
+	@echo "   CC      $^"
+	$(Q)$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 .PHONY: debug xdebug
 debug: $(TARGETELF) run.gdb
 	openocd &>/dev/null &
-	arm-none-eabi-gdb -x run.gdb
+	-arm-none-eabi-gdb -x run.gdb
 	killall openocd
 
 xdebug: $(TARGETELF) run.gdb
 	openocd &>/dev/null &
-	ddd --debugger arm-none-eabi-gdb -x run.gdb
+	-ddd --debugger arm-none-eabi-gdb -x run.gdb
 	killall openocd
 
 run.gdb:
-	echo "targ ext :3333" > $@
-	echo "file $(TARGETELF)" >> $@
-	echo "monitor init" >> $@
-	echo "monitor reset init" >> $@
-	echo "monitor flash write_image erase $(TARGETELF)" >> $@
-	echo "monitor verify_image $(TARGETELF)" >> $@
-	echo "#load $(TARGETELF)" >> $@
-	echo "kill" >> $@
-	echo "break main" >> $@
-	echo "run" >> $@
+	@echo "targ ext :3333" > $@
+	@echo "file $(TARGETELF)" >> $@
+	@echo "monitor init" >> $@
+	@echo "monitor reset init" >> $@
+	@echo "monitor flash write_image erase $(TARGETELF)" >> $@
+	@echo "monitor verify_image $(TARGETELF)" >> $@
+	@echo "#load $(TARGETELF)" >> $@
+	@echo "kill" >> $@
+	@echo "break main" >> $@
+	@echo "run" >> $@
 
