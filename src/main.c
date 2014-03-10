@@ -843,7 +843,12 @@ void Timer3_init(void)
 	TIM_OCInitStructure.TIM_Pulse = 0;
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 	TIM_OC1Init(PWM_TIMER, &TIM_OCInitStructure);
-	
+
+	// PAP: Start up TIM1 so that the PWM output is forced low (it starts out high)
+	TIM_SetCompare1(PWM_TIMER, TIM_COMPARE_LOW);
+	TIM_Cmd(PWM_TIMER, ENABLE);
+	TIM_Cmd(PWM_TIMER, DISABLE);
+
 	/* configure DMA */
 	/* DMA clock enable */
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
@@ -887,10 +892,13 @@ void Timer3_init(void)
  */
 void WS2812_send(uint8_t (*color)[3], uint16_t len)
 {
-	uint8_t j;
+	int i, j;
 	uint8_t led;
 	uint16_t memaddr;
 	uint16_t buffersize;
+
+	// Byte order mapping. 0 is red, 1 is green, 2 is blue
+	const uint8_t pix_map[3] = {0, 2, 1};
 
 	buffersize = (len*24)+42;	// number of bytes needed is #LEDs * 24 bytes + 42 trailing bytes
 	memaddr = 0;				// reset buffer memory index
@@ -899,44 +907,21 @@ void WS2812_send(uint8_t (*color)[3], uint16_t len)
 	// fill transmit buffer with correct compare values to achieve
 	// correct pulse widths according to color values
 	while (len)
-	{	
-		for (j = 0; j < 8; j++)					// GREEN data
+	{
+		for (i = 0; i < 3; i++)
 		{
-			if ( (color[led][1]<<j) & 0x80 )	// data sent MSB first, j = 0 is MSB j = 7 is LSB
+			for (j = 0; j < 8; j++)					// GREEN data
 			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_HIGH;	// compare value for logical 1
+				if ( (color[led][pix_map[i]]<<j) & 0x80 )	// data sent MSB first, j = 0 is MSB j = 7 is LSB
+				{
+					LED_BYTE_Buffer[memaddr] = TIM_COMPARE_HIGH;	// compare value for logical 1
+				}
+				else
+				{
+					LED_BYTE_Buffer[memaddr] = TIM_COMPARE_LOW;		// compare value for logical 0
+				}
+				memaddr++;
 			}
-			else
-			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_LOW;		// compare value for logical 0
-			}
-			memaddr++;
-		}
-		
-		for (j = 0; j < 8; j++)					// RED data
-		{
-			if ( (color[led][0]<<j) & 0x80 )	// data sent MSB first, j = 0 is MSB j = 7 is LSB
-			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_HIGH; 	// compare value for logical 1
-			}
-			else
-			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_LOW;	// compare value for logical 0
-			}
-			memaddr++;
-		}
-		
-		for (j = 0; j < 8; j++)					// BLUE data
-		{
-			if ( (color[led][2]<<j) & 0x80 )	// data sent MSB first, j = 0 is MSB j = 7 is LSB
-			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_HIGH; 	// compare value for logical 1
-			}
-			else
-			{
-				LED_BYTE_Buffer[memaddr] = TIM_COMPARE_LOW;	// compare value for logical 0
-			}
-			memaddr++;
 		}
 		
 		led++;
@@ -968,10 +953,11 @@ int main(void) {
 	
 
 	uint8_t off[3]		= {0,0,0};
-	uint8_t red[3]		= {0,255,0};
-	uint8_t green[3]	= {0,0,255};
-	uint8_t blue[3]		= {255,0,0};
+	uint8_t red[3]		= {255,0,0};
+	uint8_t green[3]	= {0,255,0};
+	uint8_t blue[3]		= {0,0,255};
 	uint8_t white[3]	= {255,255,255};
+	WS2812_send(&off, 1);
 	WS2812_send(&off, 1);
 	WS2812_send(&red, 1);
 	WS2812_send(&green, 1);
