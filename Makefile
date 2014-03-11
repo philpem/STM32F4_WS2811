@@ -51,6 +51,8 @@ ifneq ($(TARGETMAP),)
   LDFLAGS += -Wl,-M=$(TARGETMAP)
 endif
 
+LIBS = -lgcc -lm
+
 ###
 # Real make rules start here
 ###
@@ -69,7 +71,7 @@ clean:
 
 $(TARGETELF): $(OBJS) $(SPL_LIB)
 	@echo "   LD      $@"
-	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lgcc
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(TARGETBIN): $(TARGETELF)
 	@echo "   OBJCOPY $^ => $@"
