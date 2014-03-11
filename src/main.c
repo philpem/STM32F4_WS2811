@@ -844,10 +844,17 @@ void Timer3_init(void)
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 	TIM_OC1Init(PWM_TIMER, &TIM_OCInitStructure);
 
-	// PAP: Start up TIM1 so that the PWM output is forced low (it starts out high)
-	TIM_SetCompare1(PWM_TIMER, TIM_COMPARE_LOW);
-	TIM_Cmd(PWM_TIMER, ENABLE);
-	TIM_Cmd(PWM_TIMER, DISABLE);
+	/***
+	 * Must enable reload for PWM (STMicroelectronicd RM0090 section 18.3.9
+	 * "PWM mode":
+	 *
+	 *   You must enable the corresponding preload register by setting the
+	 *   OCxPE bit in the TIMx_CCMRx register.
+	 *
+	 * This is part of the fix for the pulse corruption (the runt pulse at
+	 * the start and the extra pulse at the end).
+	 */
+	TIM_OC1PreloadConfig(PWM_TIMER, TIM_OCPreload_Enable);
 
 	/* configure DMA */
 	/* DMA clock enable */
@@ -936,10 +943,16 @@ void WS2812_send(uint8_t (*color)[3], uint16_t len)
 	}
 
 	DMA_SetCurrDataCounter(DMA_STREAM, buffersize); 	// load number of bytes to be transferred
-	DMA_Cmd(DMA_STREAM, ENABLE); 			// enable DMA channel 6
-	// PAP: Make sure the counter is higher than the High Compare value or we'll get a glitch pulse on start
-	TIM_SetCounter(PWM_TIMER, TIM_COMPARE_HIGH+1);
+
+	// PAP: Clear the timer's counter and set the compare value to 0. This
+	// sets the output low on start and gives us a full cycle to set up DMA.
+	TIM_SetCounter(PWM_TIMER, 0);
+	TIM_SetCompare1(PWM_TIMER, 0);
 	TIM_Cmd(PWM_TIMER, ENABLE); 						// enable Timer 3
+	
+	// PAP: Start DMA transfer after starting the timer. This prevents the
+	// DMA/PWM from dropping the first bit.
+	DMA_Cmd(DMA_STREAM, ENABLE); 			// enable DMA channel 6
 	while(!DMA_GetFlagStatus(DMA_STREAM, DMA_TCIF)); 	// wait until transfer complete
 	TIM_Cmd(PWM_TIMER, DISABLE); 					// disable Timer 3
 	DMA_Cmd(DMA_STREAM, DISABLE); 			// disable DMA channel 6

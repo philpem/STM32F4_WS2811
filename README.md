@@ -14,7 +14,7 @@ Things I know are icky:
 
   * Timings are probably suboptimal. [Tim wrote a nice article on the timing requirements](http://cpldcpu.wordpress.com/2014/01/14/light_ws2812-library-v2-0-part-i-understanding-the-ws2812/) which includes timing constraints.
   * Timer clock is obtained by dividing the system clock (obtained from RCC\_GetClocksFreq) by a fixed value. This fixed value depends on the APB divider... We really need to know what that is. Look for the comment "Compute the prescaler value".
-  * There's a bodge in place to try and prevent the TIM1 timer from releasing a random-length high pulse (essentially a glitch) when the timer is initialised. Look for the comment "PAP: Start up TIM1 so that the PWM output is forced low (it starts out high)". I'm open to suggestions on ways to improve this, if anyone can think of one.
+  * <del>There's a bodge in place to try and prevent the TIM1 timer from releasing a random-length high pulse (essentially a glitch) when the timer is initialised. Look for the comment "PAP: Start up TIM1 so that the PWM output is forced low (it starts out high)". I'm open to suggestions on ways to improve this, if anyone can think of one.</del> Fixed! Thanks to Zyp on ##stm32@irc.freenode.net for explaining how to fix this.
   * The colour wheel is a bit nasty and doesn't really sequence cleanly. It'd be better (much cleaner code) if this were generated on the fly.
   * The cycle-spinner delay routine is icky. We've got the SYSTICK timer, we really should use it...
   * The LED assignments (''pix\_map'' in the WS2812\_send routine) are for my hand-soldered WS2812-board-and-an-RGB-LED thing. They probably aren't correct for the WS2812 self-contained controller-and-LED chip.
